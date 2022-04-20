@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>SSH Tunnel | 魔のkyo的工作室</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/normalize.css/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/clipboard/dist/clipboard.min.js"></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.js"></script><link rel="stylesheet" href="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.css"><div class="darkmode-toggle">🌓</div><script>var prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+var toggle = document.querySelector('.darkmode-toggle');
+var html = document.querySelector('html');
+
+html.dataset.dark = localStorage.dark || prefersDarkMode.matches;
+
+toggle.addEventListener('click', () => {
+localStorage.dark = !(html.dataset.dark == 'true');
+html.dataset.dark = localStorage.dark;
+});</script><meta name="generator" content="Hexo 6.1.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">SSH Tunnel</h1><a id="logo" href="/.">魔のkyo的工作室</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">SSH Tunnel</h1><div class="post-meta">2021-02-18<script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> 阅读</span></span></div><div class="post-content"><p>SSH Tunnel解决的问题是让原本不能访问的端口（通常是因为在不同局域网）可以访问。</p>
+<p>假设A要访问D:6379，A、D在不同局域网，最简单方法是在D所在的局域网网关上配置端口映射把D:6379映射到公网，但是很多时候出于某些因素（例如：安全考量、没有配置网关的权限、服务本身配置了只允许本地访问），不希望或无法通过把D:6379映射到公网解决，就可以考虑使用SSH Tunnel。</p>
+<p>情形1：D所在的局域网有主机C的22端口是被映射到公网的，不妨假设映射成了X:30022，X是C和D所在局域网网关在公网的IP地址，那么可以在主机A上通过命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HostA$ ssh -L 36379:D:6379 root@X -p 30022</span><br></pre></td></tr></table></figure>
+
+<p>把D:6379映射成了A:36379，特别情况C和D是同一台主机，D可以写成localhost。</p>
+<p>情形2：A所在的局域网有主机B的22端口是被映射到公网的，不妨假设映射成了X:30022，X是A和B所在局域网网关在公网的IP地址，那么可以在主机D上通过命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HostD$ ssh -g -R 36379:D:6379 root@X -p 30022</span><br></pre></td></tr></table></figure>
+
+<p>把D:6379映射成了B:36379，而A和B是同一局域网的，因此A可以访问到B:36379。</p>
+<p>按理说上面的命令加了-g参数，B:36379应该被绑定在0.0.0.0:36379，但实际测试发现绑定在了127.0.0.1:36379，导致无法在A上访问，原因暂时未知（确定不是因为redis配置了保护模式），不过可以通过类似情形1的方式再把B:36379映射成A:36379，这样A就可以访问了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HostA$ ssh -L 36379:localhost:36379 root@B</span><br></pre></td></tr></table></figure>
+
+<p>情形3：A和D所在局域网都没有主机的ssh端口被映射到公网，但我有另一台具有公网IP的主机，不妨假设为X开启着22端口，类似情形2通过命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HostD$ ssh -R 36379:D:6379 root@X</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HostA$ ssh -L 36379:localhost:36379 root@X</span><br></pre></td></tr></table></figure>
+
+<p>之后让A访问A:36379即可。</p>
+<p>通过命令建立SSH Tunnel之后会登录到作为跳板的机器，通常我们是不需要使用这个控制台的，因此可以通过-f参数让ssh在后台运行，需要关闭tunnel时直接杀死进程。</p>
+<p>其他常用选项：</p>
+<p>C表示压缩数据传输</p>
+<p>f表示后台用户验证,这个选项很有用,没有shell的不可登陆账号也能使用.</p>
+<p>N表示不执行脚本或命令</p>
+<p>g表示允许远程主机连接转发端口</p>
+<p>例如情形1中的命令可以写成</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -CfNg -L 36379:D:6379 root@X -p 30022</span><br></pre></td></tr></table></figure>
+
+<p>通过</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ps -ef|grep ssh -CfNg</span><br></pre></td></tr></table></figure>
+
+<p>可以查看打开的tunnel。</p>
+<p>当网络不稳定时，ssh tunnel会自动断开，如果是前台的运行方式，会自动退出远程控制台，回到本地控制台提示符，如果是后台运行方式，进程会自动结束，这时候可以使用autossh工具来帮助自动重连。</p>
+<p>只需要把ssh命令中的ssh换成autossh -M <port></port></p>
+<p>例如情形1中的命令可以写成</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">autossh -M 46379 -CfNg -L 36379:D:6379 root@X -p 30022</span><br></pre></td></tr></table></figure>
+
+<p>-M 后面的端口号是用来监视连接状态的，允许指定为0，这里指定为0是否可以正常监视重连以及如何监视有待研究。</p>
+<p>另外如果autossh带了-f参数则不支持输入密码，可以配合expect脚本自动输入密码或者通过SSH密钥登录，更推荐使用密钥方式。</p>
+<p>先在本地生成密钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t rsa</span><br></pre></td></tr></table></figure>
+
+<p>会询问将密钥放在何处，默认即可。然后是输入密码，留空(否则你登录不仅需要私钥还要输入密码)。</p>
+<p>完成后在~&#x2F;.ssh目录下会生成另个文件id_rsa和id_rsa.pub，一个私钥一个公钥。</p>
+<p>然后将公钥写入远程用户家目录下的~&#x2F;.ssh&#x2F;authorized_keys文件中，通过ssh-copy-id命令可以帮我们实现这一操作（相当于把公钥复制过去再追加到authorized_keys的尾部）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-copy-id [-p SSH端口默认22] [user@]hostname</span><br></pre></td></tr></table></figure>
+
+<p>参考：</p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/wxqee/article/details/49234595">https://blog.csdn.net/wxqee/article/details/49234595</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/youxin/p/5220916.html">https://www.cnblogs.com/youxin/p/5220916.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/wesleyflagon/article/details/85304336">https://blog.csdn.net/wesleyflagon/article/details/85304336</a></p>
+</div><div class="tags"><a href="/tagslinux"><i class="fa fa-tag">linux</i></a><a href="/tagsssh-tunnel"><i class="fa fa-tag">ssh-tunnel</i></a></div><div class="post-nav"><a class="pre" href="/2021/10/25/linux-mount-error-on-boot/">记一次Linux因硬盘设备编号错位挂载失败引起启动失败的解决过程</a><a class="next" href="/2021/02/02/vue-cross-domain/">Vue.js前端跨域请求代理设置方法</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/mysql/" style="font-size: 15px;">mysql</a> <a href="/tags/python/" style="font-size: 15px;">python</a> <a href="/tags/pandas/" style="font-size: 15px;">pandas</a> <a href="/tags/docker/" style="font-size: 15px;">docker</a> <a href="/tags/Hexo/" style="font-size: 15px;">Hexo</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/trouble-shooting/" style="font-size: 15px;">trouble-shooting</a> <a href="/tags/nfs/" style="font-size: 15px;">nfs</a> <a href="/tags/git/" style="font-size: 15px;">git</a> <a href="/tags/ssh-tunnel/" style="font-size: 15px;">ssh-tunnel</a> <a href="/tags/vpn/" style="font-size: 15px;">vpn</a> <a href="/tags/vue-js/" style="font-size: 15px;">vue.js</a> <a href="/tags/WSL/" style="font-size: 15px;">WSL</a> <a href="/tags/PostgreSQL/" style="font-size: 15px;">PostgreSQL</a> <a href="/tags/wsl/" style="font-size: 15px;">wsl</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2022/04/20/wsl-backup-restore/">WSL备份与还原（安装路径迁移）</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/16/wsl-install/">用WSL安装Ubuntu</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/15/hexo-typora-img/">兼容hexo和typora的图片插入方式</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/08/ssh-tunnel-docker-vpn/">使用SSH Tunnel+Docker实现类似VPN的功能</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/07/binlog2sql/">使用binlog2sql还原数据到任意时间点</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/03/28/docker/">docker常用命令</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/21/password-in-sh/">在Shell脚本中输入密码</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/08/migra-git-repository/">迁移git项目</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/12/23/df-to-excel-set-width/">pandas df.to_excel 设置列宽遇到 AttributeError: 'Worksheet' object has no attribute 'column_dimensions'</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/10/25/linux-mount-error-on-boot/">记一次Linux因硬盘设备编号错位挂载失败引起启动失败的解决过程</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://www.cnitblog.com/luckydmz/" title="魔のkyo的工作室（旧站）" target="_blank">魔のkyo的工作室（旧站）</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2022 <a href="/." rel="nofollow">魔のkyo的工作室.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=1.0.0" async></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/copycode.js?v=1.0.0" successtext="复制成功!"></script><link rel="stylesheet" type="text/css" href="/css/copycode.css?v=1.0.0"><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>

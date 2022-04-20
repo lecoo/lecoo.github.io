@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>Ubuntu下使用PPTPD搭建VPN | 魔のkyo的工作室</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/normalize.css/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/clipboard/dist/clipboard.min.js"></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.js"></script><link rel="stylesheet" href="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.css"><div class="darkmode-toggle">🌓</div><script>var prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+var toggle = document.querySelector('.darkmode-toggle');
+var html = document.querySelector('html');
+
+html.dataset.dark = localStorage.dark || prefersDarkMode.matches;
+
+toggle.addEventListener('click', () => {
+localStorage.dark = !(html.dataset.dark == 'true');
+html.dataset.dark = localStorage.dark;
+});</script><meta name="generator" content="Hexo 6.1.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">Ubuntu下使用PPTPD搭建VPN</h1><a id="logo" href="/.">魔のkyo的工作室</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">Ubuntu下使用PPTPD搭建VPN</h1><div class="post-meta">2021-02-01<script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> 阅读</span></span></div><div class="post-content"><h3><span id="搭建pptp服务器">搭建PPTP服务器</span></h3><p>参考：<a target="_blank" rel="noopener" href="https://blog.csdn.net/sanve/article/details/80882731">https://blog.csdn.net/sanve/article/details/80882731</a></p>
+<p><strong>安装</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">apt install pptpd</span><br></pre></td></tr></table></figure>
+
+<p><strong>配置IP</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/pptpd.conf</span><br></pre></td></tr></table></figure>
+
+<p>查找并解开这3处的注释并修改相应配置</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#bcrelay eth1 </span><br><span class="line">#localip 192.168.10.1</span><br><span class="line">#remoteip 192.168.10.234-238,192.168.10.245</span><br></pre></td></tr></table></figure>
+
+<p>bcrelay的意思我理解是来自虚拟局域网的广播要从哪个物理网卡转发出去</p>
+<p>localip的意思本机是VPN服务器的IP地址</p>
+<p>remoteip的意思是当有远程VPN客户端连接上来时被分配的IP段</p>
+<p>我认为应该把虚拟局域网的网段和物理局域网分开，而且localip和remoteip应该在同一个网段，网上有localip和remoteip不应该在同一个网段的说法我并不认同。</p>
+<p><strong>配置DNS</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/ppp/pptpd-options </span><br></pre></td></tr></table></figure>
+
+<p>找到ms-dns解开注释并修改相应配置</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ms-dns 114.114.114.114</span><br><span class="line">ms-dns 8.8.8.8</span><br></pre></td></tr></table></figure>
+
+<p><strong>配置用户名密码</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/ppp/chap-secrets </span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># Secrets for authentication using CHAP</span><br><span class="line"># client      server    secret         IP addresses</span><br><span class="line">&lt;username&gt;  pptpd  &lt;password&gt;        *</span><br></pre></td></tr></table></figure>
+
+<p>修改配置后重启PPTP服务器</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service pptpd restart </span><br></pre></td></tr></table></figure>
+
+<p><strong>打开IPv4转发</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/sysctl.conf </span><br></pre></td></tr></table></figure>
+
+<p>找到并修改或添加</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">net.ipv4.ip_forward = 1 </span><br></pre></td></tr></table></figure>
+
+<p>使配置生效</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sysctl -p service</span><br><span class="line">procps restart </span><br></pre></td></tr></table></figure>
+
+<p>在网关上添加指向VPN网段的静态路由，设置下一跳地址为架设VPN服务器主机的IP，这样整个局域网都是可以通过VPN正常访问的。</p>
+<p>如果没有操作网关的权限，也可以在需要访问的主机上添加静态路由</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip route add 192.168.10.0/24 via 192.168.1.99 </span><br></pre></td></tr></table></figure>
+
+<p>这里192.168.1.99就是架设VPN服务器的主机IP</p>
+<h4><span id="ubuntu-pptp客户端">Ubuntu PPTP客户端</span></h4><p>参考：<a target="_blank" rel="noopener" href="https://www.jianshu.com/p/1680c721f397">https://www.jianshu.com/p/1680c721f397</a> <a target="_blank" rel="noopener" href="http://www.linuxfly.org/post/641/">http://www.linuxfly.org/post/641/</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pptpsetup --create 连接名 --server VPN服务器地址 --username 用户名 --password 密码 --encrypt</span><br></pre></td></tr></table></figure>
+
+<p> 启动VPN连接</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pon 连接名</span><br></pre></td></tr></table></figure>
+
+<p>关闭VPN连接</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">poff 连接名</span><br></pre></td></tr></table></figure>
+
+<p>查看路由表</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">route -n</span><br></pre></td></tr></table></figure>
+
+<p>添加路由，将通过VPN接入的物理局域网网段路由指定通过ppp0网口转发</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">route add -net 192.168.1.0 netmask 255.255.255.0 dev ppp0 </span><br></pre></td></tr></table></figure>
+
+<p>每次重连后路由会丢失，需要重新配置，可以用下面的方法在ppp0 up时自动添加路由</p>
+<h4><span id="pptp连接时自启动添加路由">pptp连接时自启动添加路由</span></h4><p>参考：<a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_27434019/article/details/102920504">https://blog.csdn.net/qq_27434019/article/details/102920504</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/ppp/peers/连接名 </span><br></pre></td></tr></table></figure>
+
+<p>增加ipparam一行</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ipparam 连接名 </span><br></pre></td></tr></table></figure>
+
+<p>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;下面这步似乎不必要，不清楚作用&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/network/interfaces </span><br></pre></td></tr></table></figure>
+
+<p>增加</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">auto tunnel</span><br><span class="line">iface tunnel inet ppp</span><br><span class="line">provider 连接名</span><br></pre></td></tr></table></figure>
+
+<p>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;</p>
+<p>新建脚本文件并修改权限</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">touch /etc/ppp/ip-up.d/连接名</span><br><span class="line">chmod a+x /etc/ppp/ip-up.d/连接名</span><br></pre></td></tr></table></figure>
+
+<p>编辑脚本</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/ppp/ip-up.d/连接名 </span><br></pre></td></tr></table></figure>
+
+<p>在脚本中加入添加路由的语句</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">route add -net 192.168.1.0 netmask 255.255.255.0 dev ppp0</span><br></pre></td></tr></table></figure>
+
+<p>可以poff 再 pon 再 route -n 看看路由是否自动添加</p>
+</div><div class="tags"><a href="/tagslinux"><i class="fa fa-tag">linux</i></a><a href="/tagsvpn"><i class="fa fa-tag">vpn</i></a></div><div class="post-nav"><a class="pre" href="/2021/02/02/linux-limit-directory-size/">Linux限制目录大小</a><a class="next" href="/2020/08/27/linux-share/">Linux配置共享目录</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/mysql/" style="font-size: 15px;">mysql</a> <a href="/tags/python/" style="font-size: 15px;">python</a> <a href="/tags/pandas/" style="font-size: 15px;">pandas</a> <a href="/tags/docker/" style="font-size: 15px;">docker</a> <a href="/tags/Hexo/" style="font-size: 15px;">Hexo</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/trouble-shooting/" style="font-size: 15px;">trouble-shooting</a> <a href="/tags/nfs/" style="font-size: 15px;">nfs</a> <a href="/tags/git/" style="font-size: 15px;">git</a> <a href="/tags/ssh-tunnel/" style="font-size: 15px;">ssh-tunnel</a> <a href="/tags/vpn/" style="font-size: 15px;">vpn</a> <a href="/tags/vue-js/" style="font-size: 15px;">vue.js</a> <a href="/tags/WSL/" style="font-size: 15px;">WSL</a> <a href="/tags/PostgreSQL/" style="font-size: 15px;">PostgreSQL</a> <a href="/tags/wsl/" style="font-size: 15px;">wsl</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2022/04/20/wsl-backup-restore/">WSL备份与还原（安装路径迁移）</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/16/wsl-install/">用WSL安装Ubuntu</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/15/hexo-typora-img/">兼容hexo和typora的图片插入方式</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/08/ssh-tunnel-docker-vpn/">使用SSH Tunnel+Docker实现类似VPN的功能</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/07/binlog2sql/">使用binlog2sql还原数据到任意时间点</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/03/28/docker/">docker常用命令</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/21/password-in-sh/">在Shell脚本中输入密码</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/08/migra-git-repository/">迁移git项目</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/12/23/df-to-excel-set-width/">pandas df.to_excel 设置列宽遇到 AttributeError: 'Worksheet' object has no attribute 'column_dimensions'</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/10/25/linux-mount-error-on-boot/">记一次Linux因硬盘设备编号错位挂载失败引起启动失败的解决过程</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://www.cnitblog.com/luckydmz/" title="魔のkyo的工作室（旧站）" target="_blank">魔のkyo的工作室（旧站）</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2022 <a href="/." rel="nofollow">魔のkyo的工作室.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=1.0.0" async></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/copycode.js?v=1.0.0" successtext="复制成功!"></script><link rel="stylesheet" type="text/css" href="/css/copycode.css?v=1.0.0"><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>

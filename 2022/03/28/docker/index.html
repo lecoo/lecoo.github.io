@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>docker常用命令 | 魔のkyo的工作室</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/normalize.css/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/clipboard/dist/clipboard.min.js"></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.js"></script><link rel="stylesheet" href="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.css"><div class="darkmode-toggle">🌓</div><script>var prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+var toggle = document.querySelector('.darkmode-toggle');
+var html = document.querySelector('html');
+
+html.dataset.dark = localStorage.dark || prefersDarkMode.matches;
+
+toggle.addEventListener('click', () => {
+localStorage.dark = !(html.dataset.dark == 'true');
+html.dataset.dark = localStorage.dark;
+});</script><meta name="generator" content="Hexo 6.1.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">docker常用命令</h1><a id="logo" href="/.">魔のkyo的工作室</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">docker常用命令</h1><div class="post-meta">2022-03-28<script src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script><span id="busuanzi_container_page_pv"> | <span id="busuanzi_value_page_pv"></span><span> 阅读</span></span></div><div class="post-content"><h4><span id="启动一个容器">启动一个容器</span></h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -h 容器主机名 --name 容器名 -Pdit 镜像名</span><br></pre></td></tr></table></figure>
+
+<h4><span id="启动一个新的bash进行管理">启动一个新的bash进行管理</span></h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it 容器名 bash</span><br></pre></td></tr></table></figure>
+
+<h4><span id="其他常用命令">其他常用命令</span></h4><table>
+<thead>
+<tr>
+<th></th>
+<th>镜像</th>
+<th>容器</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>创建</td>
+<td>build -t&#x2F;commit</td>
+<td>create&#x2F;run</td>
+</tr>
+<tr>
+<td>删除</td>
+<td>rmi</td>
+<td>rm</td>
+</tr>
+<tr>
+<td>重命名</td>
+<td>tag+rmi</td>
+<td>rename</td>
+</tr>
+<tr>
+<td>查看列表</td>
+<td>images</td>
+<td>ps&#x2F;ps -a&#x2F;ps -l -q</td>
+</tr>
+<tr>
+<td>运行状态</td>
+<td>stats</td>
+<td>top</td>
+</tr>
+<tr>
+<td>查看日志</td>
+<td>history</td>
+<td>logs</td>
+</tr>
+<tr>
+<td>登录</td>
+<td>login</td>
+<td></td>
+</tr>
+<tr>
+<td>拉取</td>
+<td>pull</td>
+<td></td>
+</tr>
+<tr>
+<td>推送</td>
+<td>push</td>
+<td></td>
+</tr>
+<tr>
+<td>查找</td>
+<td>search</td>
+<td></td>
+</tr>
+<tr>
+<td>查看容器信息</td>
+<td></td>
+<td>inspect</td>
+</tr>
+<tr>
+<td>发信号</td>
+<td></td>
+<td>kill</td>
+</tr>
+<tr>
+<td>附到主进程</td>
+<td></td>
+<td>attach</td>
+</tr>
+<tr>
+<td>执行新进程</td>
+<td></td>
+<td>exec</td>
+</tr>
+</tbody></table>
+<h4><span id="docker-run-常用参数">docker run 常用参数</span></h4><p>-d   # 后台运行<br>-it   # 打开STDIN，支持终端登录<br>–name &lt;容器名&gt;<br>-h &lt;主机名&gt;<br>-P   # 随机映射所有配置在EXPOSE中的端口<br>-p [&lt;宿主端口&gt;:]&lt;容器端口&gt; # 指定映射一个端口，不指定宿主端口时表示随机<br>–expose &lt;容器端口&gt;  # 指定暴露一个容器端口，但不映射到宿主机<br>-v &lt;宿主路径&gt;:&lt;容器路径&gt;[:ro|:rw] # 卷映射，容器路径不存在时自动创建，ro表示只读，默认是rw表示读写<br>–volumes-from &lt;容器名&gt; # 指定容器里的所有卷都将加入到新创建的容器里<br>–network &lt;网络名&gt; # 默认bridge，同一个非默认网络下的容器可以使用主机名相互访问，特别的，如果设置为	host，表示和宿主机共用网络，这时容器内绑定的端口都将直接绑定到宿主机而不需要通过-p建立映射<br>–link &lt;容器名&gt;:&lt;主机名&gt;  # 在新创建的容器里可以通过主机名访问另一个运行中的容器<br>–add-host &lt;主机名&gt;:<ip> # 指定主机名解析添加到&#x2F;etc&#x2F;hosts文件<br>–env &lt;环境变量名&gt;&#x3D;&lt;环境变量值&gt;  # 设置环境变量，-e 选项可以重复多次<br>–env-file &lt;环境变量文件&gt;  # 指定环境变量文件，换行符分割<br>–user &lt;用户名&gt;<br>–workdir &lt;工作目录&gt;<br>–mac-address&#x3D;”xx:xx:xx:xx:xx:xx”   # 指定MAC地址<br>–ip&#x3D;”x.x.x.x”  # 指定IP地址</ip></p>
+<h5><span id="关于资源限制的参数">关于资源限制的参数：</span></h5><p>–cpuset-cpus&#x3D;”1,3” # 限制在核1、3上运行<br>–memory&#x3D;1G # 限制内存最大使用1G<br>–device-read-bps &#x2F;dev&#x2F;sdd:40mb # 限制读取sdd的速度最大40mb<br>–device-write-bps &#x2F;dev&#x2F;sdd:30mb # 限制写入sdd的速度最大30mb<br>（机械硬盘读写速度是60-80MB，固态硬盘读写速度是130~300MB，都是写慢读快）</p>
+<h4><span id="docker-network-常用参数">docker network 常用参数</span></h4><p>  create [–gateway&#x3D;192.168.1.1] [–subnet&#x3D;192.168.1.0&#x2F;24] &lt;网络名&gt;   # 创建一个新的网络<br>  connect &lt;网络名&gt; &lt;容器名&gt;  # 向一个网络中添加一个容器<br>  disconnect &lt;网络名&gt; &lt;容器名&gt;  # 从一个网络中移除一个容器<br>  inspect &lt;网络名&gt;   # 查看指定网络详细信息<br>  ls              # 查看网络列表<br>  rm &lt;网络名&gt;  # 删除指定网络<br>  prune      # 删除所有未使用的网络</p>
+<h4><span id="docker-inspect-常用参数">docker inspect 常用参数</span></h4><p>–format format的用法比较复杂，用几个逐级深入的例子演示，事实上我通常把docker_ip, docker_volume设成Linux别名方便使用</p>
+<p>docker_id 查看容器的Id</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;.Id&#125;&#125;&#x27; 容器名</span><br></pre></td></tr></table></figure>
+
+<p>docker_ip 查看容器在所有网络中分配的所有的ip</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;range .NetworkSettings.Networks&#125;&#125;&#123;&#123;println .IPAddress&#125;&#125;&#123;&#123;end&#125;&#125;&#x27; 容器名</span><br></pre></td></tr></table></figure>
+
+<p>docker_volume 查看容器的卷</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;range .Mounts&#125;&#125;&#123;&#123;.Source&#125;&#125;:&#123;&#123;.Destination&#125;&#125;&#123;&#123;println&#125;&#125;&#123;&#123;end&#125;&#125;&#x27; 容器名</span><br></pre></td></tr></table></figure>
+
+<p>docker_port 查看容器所有的端口映射情况，用docker inspect实现 docker port命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;range $p, $conf := .NetworkSettings.Ports&#125;&#125;&#123;&#123;range $conf&#125;&#125;&#123;&#123;$p&#125;&#125; -&gt; &#123;&#123;.HostIp&#125;&#125;:&#123;&#123;.HostPort&#125;&#125;&#123;&#123;println&#125;&#125;&#123;&#123;end&#125;&#125;&#123;&#123;end&#125;&#125;&#x27; 容器名</span><br></pre></td></tr></table></figure>
+
+</div><div class="tags"><a href="/tagsdocker"><i class="fa fa-tag">docker</i></a></div><div class="post-nav"><a class="pre" href="/2022/04/07/binlog2sql/">使用binlog2sql还原数据到任意时间点</a><a class="next" href="/2022/02/21/password-in-sh/">在Shell脚本中输入密码</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/mysql/" style="font-size: 15px;">mysql</a> <a href="/tags/python/" style="font-size: 15px;">python</a> <a href="/tags/pandas/" style="font-size: 15px;">pandas</a> <a href="/tags/docker/" style="font-size: 15px;">docker</a> <a href="/tags/Hexo/" style="font-size: 15px;">Hexo</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/trouble-shooting/" style="font-size: 15px;">trouble-shooting</a> <a href="/tags/nfs/" style="font-size: 15px;">nfs</a> <a href="/tags/git/" style="font-size: 15px;">git</a> <a href="/tags/ssh-tunnel/" style="font-size: 15px;">ssh-tunnel</a> <a href="/tags/vpn/" style="font-size: 15px;">vpn</a> <a href="/tags/vue-js/" style="font-size: 15px;">vue.js</a> <a href="/tags/WSL/" style="font-size: 15px;">WSL</a> <a href="/tags/PostgreSQL/" style="font-size: 15px;">PostgreSQL</a> <a href="/tags/wsl/" style="font-size: 15px;">wsl</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2022/04/20/wsl-backup-restore/">WSL备份与还原（安装路径迁移）</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/16/wsl-install/">用WSL安装Ubuntu</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/15/hexo-typora-img/">兼容hexo和typora的图片插入方式</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/08/ssh-tunnel-docker-vpn/">使用SSH Tunnel+Docker实现类似VPN的功能</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/04/07/binlog2sql/">使用binlog2sql还原数据到任意时间点</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/03/28/docker/">docker常用命令</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/21/password-in-sh/">在Shell脚本中输入密码</a></li><li class="post-list-item"><a class="post-list-link" href="/2022/02/08/migra-git-repository/">迁移git项目</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/12/23/df-to-excel-set-width/">pandas df.to_excel 设置列宽遇到 AttributeError: 'Worksheet' object has no attribute 'column_dimensions'</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/10/25/linux-mount-error-on-boot/">记一次Linux因硬盘设备编号错位挂载失败引起启动失败的解决过程</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://www.cnitblog.com/luckydmz/" title="魔のkyo的工作室（旧站）" target="_blank">魔のkyo的工作室（旧站）</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2022 <a href="/." rel="nofollow">魔のkyo的工作室.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=1.0.0" async></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/copycode.js?v=1.0.0" successtext="复制成功!"></script><link rel="stylesheet" type="text/css" href="/css/copycode.css?v=1.0.0"><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>
