@@ -113,9 +113,9 @@
       
         <tags>
             
-            <tag> docker </tag>
-            
             <tag> ssh-tunnel </tag>
+            
+            <tag> docker </tag>
             
             <tag> vpn </tag>
             

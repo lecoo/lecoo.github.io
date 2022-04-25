@@ -157,9 +157,9 @@
     
     
     
-    <category term="docker" scheme="https://kyo86.com/tags/docker/"/>
-    
     <category term="ssh-tunnel" scheme="https://kyo86.com/tags/ssh-tunnel/"/>
+    
+    <category term="docker" scheme="https://kyo86.com/tags/docker/"/>
     
     <category term="vpn" scheme="https://kyo86.com/tags/vpn/"/>
     
