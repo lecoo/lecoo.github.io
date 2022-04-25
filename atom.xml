@@ -3,11 +3,11 @@
   <title>魔のkyo的工作室</title>
   
   
-  <link href="https://www.kyo86.com/atom.xml" rel="self"/>
+  <link href="https://kyo86.com/atom.xml" rel="self"/>
   
-  <link href="https://www.kyo86.com/"/>
-  <updated>2022-04-24T09:33:02.767Z</updated>
-  <id>https://www.kyo86.com/</id>
+  <link href="https://kyo86.com/"/>
+  <updated>2022-04-25T08:57:16.252Z</updated>
+  <id>https://kyo86.com/</id>
   
   <author>
     <name>魔のkyo</name>
@@ -17,11 +17,38 @@
   <generator uri="https://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>nginx+ngrok共享80端口</title>
+    <link href="https://kyo86.com/2022/04/25/nginx-ngrok-share-80/"/>
+    <id>https://kyo86.com/2022/04/25/nginx-ngrok-share-80/</id>
+    <published>2022-04-25T05:57:00.000Z</published>
+    <updated>2022-04-25T08:57:16.252Z</updated>
+    
+    <content type="html"><![CDATA[<!--toc--><p>上一篇我们讲到 <a href="/2022/04/24/ngrok/">通过ngrok实现内网穿透</a>，在运行服务器时指定了参数 -httpAddr&#x3D;:30080 -httpsAddr&#x3D;:30443</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/ngrokd -domain=ngrok.kyo86.com -tlsKey=./keys/device.key -tlsCrt=./keys/device.crt -httpAddr=:30080 -httpsAddr=:30443</span><br></pre></td></tr></table></figure><p>是为了避免和nginx服务器端口占用冲突，但这会导致我们通过子域名来映射web服务时只能通过30080端口访问，而不是通常的80端口。</p><p>例如我们启动一个hexo博客</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hexo s</span><br></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">daimingzhuang@ecs-windows:/mnt/d/Projects/blog$ hexo s</span><br><span class="line">INFO  Validating config</span><br><span class="line">INFO  Start processing</span><br><span class="line">INFO  Hexo is running at http://localhost:4000/ . Press Ctrl+C to stop.</span><br></pre></td></tr></table></figure><p>然后将其使用的4000端口通过hexo子域名映射出去</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./ngrok.exe -config=&quot;ngrok.cfg&quot; -subdomain=hexo -proto=http 4000</span><br></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ngrok                                                                (Ctrl+C to quit)                       Tunnel Status                 online</span><br><span class="line">Version                       1.7/1.7</span><br><span class="line">Forwarding                    http://hexo.ngrok.kyo86.com:30080 -&gt; 127.0.0.1:4000</span><br><span class="line">Web Interface                 127.0.0.1:4040</span><br><span class="line"># Conn                        0</span><br><span class="line">Avg Conn Time                 0.00ms                         </span><br></pre></td></tr></table></figure><p>这时候任何人都可以通过 <code>http://hexo.ngrok.kyo86.com:30080</code> 来访问博客了但这显然不是很令人舒服，我希望能通过 <code>http://hexo.ngrok.kyo86.com</code> 来访问。</p><p>通常80端口会留给nginx使用，在nginx上配置反向代理，根据域名或者根据路径把请求转发到其他端口或者其他内部服务器上。</p><p>下面我们就通过nginx配置将 *.ngrok.kyo86.com 的请求转发到 30080端口</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/nginx/sites-enabled/default</span><br></pre></td></tr></table></figure><p>新建一个server configuration如下</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">        listen 80;</span><br><span class="line">        server_name *.ngrok.kyo86.com;</span><br><span class="line">        location / &#123;</span><br><span class="line">                proxy_pass http://127.0.0.1:30080;</span><br><span class="line">                proxy_redirect                    off;</span><br><span class="line">                proxy_set_header Host             $http_host:30080;</span><br><span class="line">                proxy_set_header X-Real-IP        $remote_addr;</span><br><span class="line">                proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;</span><br><span class="line">                proxy_read_timeout                120;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>server_name来指定域名，特别注意 $http_host:30080 这里一定要指定端口，不然当我们使用 <code>http://hexo.ngrok.kyo86.com</code> 访问时请求确实会被转发到ngrok服务器，但是ngrok会根据 <code>http://hexo.ngrok.kyo86.com</code> 这个地址去寻找tunnel，而被注册的地址是 <code>http://hexo.ngrok.kyo86.com:30080</code> 所以会找不到tunnel，也就无法将请求转发给hexo服务器。</p><p>检测nginx配置文件合法性</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nginx -t</span><br></pre></td></tr></table></figure><p>重启nginx服务器</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service nginx restart</span><br></pre></td></tr></table></figure><p>现在就可以通过 <code>http://hexo.ngrok.kyo86.com</code> 来访问hexo博客了，当然仍然可以通过 <code>http://hexo.ngrok.kyo86.com:30080</code> 来访问。</p><p>到现在只剩下一点稍微不爽，就是在运行ngrok客户端时，其中回显</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Forwarding                    http://hexo.ngrok.kyo86.com:30080 -&gt; 127.0.0.1:4000</span><br></pre></td></tr></table></figure><p>仍然带着:30080。</p><p>实际上我们可以把nginx和ngrok绑定在不同IP的80端口上，nginx绑定在公网IP:80，ngrok绑定在localhost:80，这样是没有冲突的。</p><h4><span id="修改nginx配置">修改nginx配置</span></h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/nginx/sites-enabled/default</span><br></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">        listen 172.19.XX.XXX:80;</span><br><span class="line">        server_name *.ngrok.kyo86.com;</span><br><span class="line">        location / &#123;</span><br><span class="line">                proxy_pass http://127.0.0.1;</span><br><span class="line">                proxy_redirect                    off;</span><br><span class="line">                proxy_set_header Host             $http_host;</span><br><span class="line">                proxy_set_header X-Real-IP        $remote_addr;</span><br><span class="line">                proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;</span><br><span class="line">                proxy_read_timeout                120;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>这里的 listen 在端口前面加了IP地址，我在阿里云上，虽然ECS是有公网地址的，但查看ifconfig时没有看到公网地址，我就指定了连接到公网的那块网卡的地址，这时候 $http_host就不要带上:80了，因为这时向ngrok注册tunnel的地址是不带端口的。</p><p>还要注意，<strong>其他的server配置如果是使用80端口，都要改成指定IP地址绑定，不然后面会和ngrok冲突。</strong></p><p>重启nginx服务器</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service nginx restart</span><br></pre></td></tr></table></figure><h4><span id="运行ngrok服务器">运行ngrok服务器</span></h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/ngrokd -domain=ngrok.kyo86.com -tlsKey=./keys/device.key -tlsCrt=./keys/device.crt -httpAddr=127.0.0.1:80 -httpsAddr=127.0.0.1:443</span><br></pre></td></tr></table></figure><p>这里把端口绑定成了127.0.0.1的80和443。</p><p>启动ngrok客户端，回显变成了</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Forwarding                    http://hexo.ngrok.kyo86.com -&gt; 127.0.0.1:4000</span><br></pre></td></tr></table></figure><p>测试访问 <code>http://hexo.ngrok.kyo86.com</code> ，成功，完美。</p><p>如果启动ngrokd时报错</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">panic: listen tcp 127.0.0.1:80: bind: address already in use</span><br></pre></td></tr></table></figure><p>去检查nginx配置看是不是所有80端口前都加了IP地址，或者用</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">netstat -anp|grep :80</span><br></pre></td></tr></table></figure><p>来查看绑定了80端口的进程。</p>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;!--toc--&gt;
+
+&lt;p&gt;上一篇我们讲到 &lt;a href=&quot;/2022/04/24/ngrok/&quot;&gt;通过ngrok实现内网穿透&lt;/a&gt;，在运行服务器时指定了参数 -httpAddr&amp;#x3D;:30080 -httpsAddr&amp;#x3D;:30443&lt;/p&gt;
+&lt;figure </summary>
+      
+    
+    
+    
+    
+    <category term="nginx" scheme="https://kyo86.com/tags/nginx/"/>
+    
+    <category term="ngrok" scheme="https://kyo86.com/tags/ngrok/"/>
+    
+  </entry>
+  
+  <entry>
     <title>通过ngrok实现内网穿透</title>
-    <link href="https://www.kyo86.com/2022/04/24/ngrok/"/>
-    <id>https://www.kyo86.com/2022/04/24/ngrok/</id>
+    <link href="https://kyo86.com/2022/04/24/ngrok/"/>
+    <id>https://kyo86.com/2022/04/24/ngrok/</id>
     <published>2022-04-24T08:59:43.000Z</published>
-    <updated>2022-04-24T09:33:02.767Z</updated>
+    <updated>2022-04-25T08:46:44.207Z</updated>
     
     <content type="html"><![CDATA[<p>ngrok和ssh-tunnel做的事有点像，ngrok专注于将一个本地服务器暴露到公网。</p><p>它的工作原理是首先有一个<strong>公网的ngrok服务器</strong>，然后在内网需要暴露的机器上通过ngrok客户端建立tunnel来暴露指定端口。</p><p>国内有一些免费的ngrok服务器，也可以自己搭建，这里我自己搭建。</p><h2><span id="搭建ngrok服务器">搭建ngrok服务器</span></h2><p>参考：<a href="https://zhuanlan.zhihu.com/p/149968878">https://zhuanlan.zhihu.com/p/149968878</a></p><h3><span id="下载源码">下载源码</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/inconshreveable/ngrok.git</span><br><span class="line">cd ngrok</span><br></pre></td></tr></table></figure><h3><span id="生成证书">生成证书</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cd keys</span><br><span class="line">export NGROK_DOMAIN=&quot;ngrok.kyo86.com&quot;</span><br><span class="line">openssl genrsa -out rootCA.key 2048</span><br><span class="line">openssl req -x509 -new -nodes -key rootCA.key -subj &quot;/CN=$NGROK_DOMAIN&quot; -days 5000 -out rootCA.pem</span><br><span class="line">openssl genrsa -out device.key 2048</span><br><span class="line">openssl req -new -key device.key -subj &quot;/CN=$NGROK_DOMAIN&quot; -out device.csr</span><br><span class="line">openssl x509 -req -in device.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out device.crt -days 5000</span><br></pre></td></tr></table></figure><h3><span id="替换证书">替换证书</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cp rootCA.pem ../assets/client/tls/ngrokroot.crt</span><br><span class="line">cp device.crt ../assets/server/tls/snakeoil.crt</span><br><span class="line">cp device.key ../assets/server/tls/snakeoil.key</span><br><span class="line">cd ..</span><br></pre></td></tr></table></figure><h3><span id="编译linux服务端">编译linux服务端</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">set GOOS=linux GOARCH=amd64</span><br><span class="line">make release-server</span><br></pre></td></tr></table></figure><h3><span id="编译linux客户端">编译linux客户端</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">set GOOS=linux GOARCH=amd64</span><br><span class="line">make release-client</span><br></pre></td></tr></table></figure><p>注意：因为客户端和服务器在编译时都使用了证书，所以他们是一一对应的，就是说ngrok客户端并不是通用的，不能用来连接其他的ngrok服务器。</p><h2><span id="启动服务器端">启动服务器端</span></h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/ngrokd -domain=ngrok.kyo86.com -tlsKey=./keys/device.key -tlsCrt=./keys/device.crt -httpAddr=:30080 -httpsAddr=:30443</span><br></pre></td></tr></table></figure><h3><span id="在客户端建立端口映射">在客户端建立端口映射</span></h3><p>创建配置文件ngrok.cfg</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">server_addr: &quot;ngrok.kyo86.com:4443&quot;</span><br><span class="line">trust_host_root_certs: false</span><br></pre></td></tr></table></figure><p>暴露服务器有两种方式：</p><p>一是在运行服务器时指定的http和https端口通过子域名的方式来暴露web服务</p><p>二是通过随机端口来暴露指定的tcp端口</p><h4><span id="暴露web服务">暴露WEB服务</span></h4><p>把本地的8080（http）端口映射到通过 <a href="http://jupyter.ngrok.kyo86.com:30080/">http://jupyter.ngrok.kyo86.com:30080</a> 访问</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./ngrok -config=ngrok.cfg -subdomain=jupyter -proto=http 8080</span><br></pre></td></tr></table></figure><p>访问子域名需要指定<strong>泛域名解析</strong>，即 *.ngrok.kyo86.com 的解析。</p><p>如果不指定-proto默认就是http+https</p><h4><span id="暴露tcp端口">暴露TCP端口</span></h4><p>把本地的22（tcp）端口映射到 ngrok.kyo86.com上的一个随机端口</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./ngrok -config=ngrok.cfg -proto=tcp 22</span><br></pre></td></tr></table></figure>]]></content>
     
@@ -35,16 +62,18 @@
     
     
     
-    <category term="ssh-tunnel" scheme="https://www.kyo86.com/tags/ssh-tunnel/"/>
+    <category term="ngrok" scheme="https://kyo86.com/tags/ngrok/"/>
+    
+    <category term="ssh-tunnel" scheme="https://kyo86.com/tags/ssh-tunnel/"/>
     
   </entry>
   
   <entry>
     <title>WSL备份与还原（安装路径迁移）</title>
-    <link href="https://www.kyo86.com/2022/04/20/wsl-backup-restore/"/>
-    <id>https://www.kyo86.com/2022/04/20/wsl-backup-restore/</id>
+    <link href="https://kyo86.com/2022/04/20/wsl-backup-restore/"/>
+    <id>https://kyo86.com/2022/04/20/wsl-backup-restore/</id>
     <published>2022-04-20T04:11:13.000Z</published>
-    <updated>2022-04-20T06:21:50.613Z</updated>
+    <updated>2022-04-24T08:58:09.288Z</updated>
     
     <content type="html"><![CDATA[<!--toc--><p>通过 wsl export&#x2F;import 命令可以实现WSL的备份与还原，在还原时可以指定安装路径从而实现安装路径迁移。</p><h5><span id="备份">备份</span></h5><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 查看已安装的所有子系统</span><br><span class="line">wsl --list --all</span><br><span class="line"># 查看正在运行的子系统</span><br><span class="line">wsl --list --running</span><br><span class="line"># 若要备份的子系统正在运行，则将其终止</span><br><span class="line">wsl -t Ubuntu-18.04</span><br><span class="line"># 导出子系统到.tar文件 wsl --export &lt;DistributionName&gt; &lt;FileName&gt;</span><br><span class="line">wsl --export Ubuntu-18.04 D:\wsl\backup\ubuntu1804.tar</span><br></pre></td></tr></table></figure><h5><span id="还原">还原</span></h5><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 注销子系统（视情况，看是否需要）</span><br><span class="line">wsl --unregister Ubuntu-18.04</span><br><span class="line"># 导入子系统 wsl --import &lt;DistributionName&gt; &lt;InstallLocation&gt; &lt;FileName&gt;</span><br><span class="line">wsl --import Ubuntu-18.04 D:\wsl\Ubuntu1804\ D:\wsl\backup\ubuntu1804.tar</span><br></pre></td></tr></table></figure><p>新还原的Ubuntu子系统的默认用户会变成root（无论是在Windows Terminal中打开Ubuntu还是在vscode中通过Remote-WSL启动Ubuntu）<br>可以通过下面的命令</p><h5><span id="修改子系统默认用户">修改子系统默认用户</span></h5><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 定义函数WSL-SetDefaultUser，接收参数distro和user</span><br><span class="line">Function WSL-SetDefaultUser ($distro, $user) &#123; Get-ItemProperty Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Lxss\*\ DistributionName | Where-Object -Property DistributionName -eq $distro | Set-ItemProperty -Name DefaultUid -Value ((wsl -d $distro -u $user -e id -u) | Out-String); &#125;;</span><br><span class="line"># 调用函数，WSL-SetDefaultUser &lt;DistroName&gt; &lt;UserName&gt;</span><br><span class="line">WSL-SetDefaultUser Ubuntu-18.04 daimingzhuang</span><br><span class="line"># 取消函数定义</span><br><span class="line">Remove-Item Function:WSL-SetDefaultUser</span><br></pre></td></tr></table></figure><p>参考：</p><p><a href="http://www.xfy-learning.com/2020/05/30/WSL%E5%A4%87%E4%BB%BD%E4%B8%8E%E8%BF%98%E5%8E%9F/">WSL备份与还原 | 小肥羊吃草不吃肉 (xfy-learning.com)</a></p>]]></content>
     
@@ -60,16 +89,16 @@
     
     
     
-    <category term="wsl" scheme="https://www.kyo86.com/tags/wsl/"/>
+    <category term="wsl" scheme="https://kyo86.com/tags/wsl/"/>
     
   </entry>
   
   <entry>
     <title>用WSL安装Ubuntu</title>
-    <link href="https://www.kyo86.com/2022/04/16/wsl-install/"/>
-    <id>https://www.kyo86.com/2022/04/16/wsl-install/</id>
+    <link href="https://kyo86.com/2022/04/16/wsl-install/"/>
+    <id>https://kyo86.com/2022/04/16/wsl-install/</id>
     <published>2022-04-16T10:35:20.000Z</published>
-    <updated>2022-04-20T06:23:47.500Z</updated>
+    <updated>2022-04-24T08:58:09.290Z</updated>
     
     <content type="html"><![CDATA[<p>启用“适用于 Linux 的 Windows 子系统”</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart</span><br></pre></td></tr></table></figure><p>启用“虚拟机平台”可选组件</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart</span><br></pre></td></tr></table></figure><p>将 WSL 版本设置为 1 或 2</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wsl --set-default-version 2</span><br></pre></td></tr></table></figure><p>列出已安装的 Linux 发行版</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wsl --list --online</span><br></pre></td></tr></table></figure><p>安装特定的 Linux 发行版</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wsl --install -d Ubuntu-18.04</span><br></pre></td></tr></table></figure><p>从官网安装比较慢，也可以下载安装包解压后通过ubuntu1804.exe安装<br><a href="https://pan.baidu.com/s/1Rf9vTiXoUkpWWMQVlICYcw?pwd=7qib">https://pan.baidu.com/s/1Rf9vTiXoUkpWWMQVlICYcw?pwd=7qib</a></p><p>需要注意的是解压路径就是WSL的安装路径，安装好不能移除，否则WSL就损坏了</p><p>BTW：</p><h4><span id="输入wsl-bash找不到路径的问题">输入wsl bash找不到路径的问题</span></h4><p>启用“适用于 Linux 的 Windows 子系统”后找不到，可以先重启再试，和系统版本有关，我遇到过需要重启的系统，也遇到过不需要重启的系统。</p><p>之前可以使用，某种操作后突然不能找不到bash，可能是wsl被损坏，我遇到一次是在ECS上安装Docker Desktop，不能用后将Docker Desktop删除，wsl就损坏了</p><p>解决方案：</p><p>wsl.exe –list –all (列出所有的linux系统)</p><p>wsl.exe –unregister (上面所列出的名字)</p><p>重新安装</p>]]></content>
     
@@ -83,14 +112,14 @@
     
     
     
-    <category term="WSL" scheme="https://www.kyo86.com/tags/WSL/"/>
+    <category term="WSL" scheme="https://kyo86.com/tags/WSL/"/>
     
   </entry>
   
   <entry>
     <title>兼容hexo和typora的图片插入方式</title>
-    <link href="https://www.kyo86.com/2022/04/15/hexo-typora-img/"/>
-    <id>https://www.kyo86.com/2022/04/15/hexo-typora-img/</id>
+    <link href="https://kyo86.com/2022/04/15/hexo-typora-img/"/>
+    <id>https://kyo86.com/2022/04/15/hexo-typora-img/</id>
     <published>2022-04-15T09:46:22.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -106,14 +135,14 @@
     
     
     
-    <category term="Hexo" scheme="https://www.kyo86.com/tags/Hexo/"/>
+    <category term="Hexo" scheme="https://kyo86.com/tags/Hexo/"/>
     
   </entry>
   
   <entry>
     <title>使用SSH Tunnel+Docker实现类似VPN的功能</title>
-    <link href="https://www.kyo86.com/2022/04/08/ssh-tunnel-docker-vpn/"/>
-    <id>https://www.kyo86.com/2022/04/08/ssh-tunnel-docker-vpn/</id>
+    <link href="https://kyo86.com/2022/04/08/ssh-tunnel-docker-vpn/"/>
+    <id>https://kyo86.com/2022/04/08/ssh-tunnel-docker-vpn/</id>
     <published>2022-04-07T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.914Z</updated>
     
@@ -128,20 +157,20 @@
     
     
     
-    <category term="docker" scheme="https://www.kyo86.com/tags/docker/"/>
+    <category term="docker" scheme="https://kyo86.com/tags/docker/"/>
     
-    <category term="ssh-tunnel" scheme="https://www.kyo86.com/tags/ssh-tunnel/"/>
+    <category term="ssh-tunnel" scheme="https://kyo86.com/tags/ssh-tunnel/"/>
     
-    <category term="vpn" scheme="https://www.kyo86.com/tags/vpn/"/>
+    <category term="vpn" scheme="https://kyo86.com/tags/vpn/"/>
     
   </entry>
   
   <entry>
     <title>使用binlog2sql还原数据到任意时间点</title>
-    <link href="https://www.kyo86.com/2022/04/07/binlog2sql/"/>
-    <id>https://www.kyo86.com/2022/04/07/binlog2sql/</id>
+    <link href="https://kyo86.com/2022/04/07/binlog2sql/"/>
+    <id>https://kyo86.com/2022/04/07/binlog2sql/</id>
     <published>2022-04-06T16:00:00.000Z</published>
-    <updated>2022-04-19T11:39:25.901Z</updated>
+    <updated>2022-04-19T13:57:49.827Z</updated>
     
     <content type="html"><![CDATA[<!-- toc --><ul><li><a href="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C">准备工作</a><ul><li><a href="#%E5%88%9B%E5%BB%BAbinlog2sql%E8%B4%A6%E5%8F%B7">创建binlog2sql账号</a></li><li><a href="#%E6%8E%88%E6%9D%83">授权</a></li><li><a href="#%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%85%8D%E7%BD%AE">服务器配置</a></li><li><a href="#%E4%B8%8B%E8%BD%BDbinlog2sql">下载binlog2sql</a></li><li><a href="#%E5%AE%89%E8%A3%85%E4%BE%9D%E8%B5%96">安装依赖</a></li><li><a href="#%E5%88%9B%E5%BB%BAbinlog2sql%E5%88%AB%E5%90%8D">创建binlog2sql别名</a></li></ul></li><li><a href="#%E5%A6%82%E4%BD%95%E6%9F%A5%E7%9C%8B%E4%B8%80%E4%B8%AAbinlog%E6%96%87%E4%BB%B6%E8%AE%B0%E5%BD%95%E7%9A%84position%E7%9A%84%E8%8C%83%E5%9B%B4">如何查看一个binlog文件记录的position的范围？</a></li><li><a href="#%E5%A6%82%E4%BD%95%E4%BF%9D%E7%95%99%E4%B8%80%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84%E5%85%A8%E9%87%8F%E5%A4%87%E4%BB%BD">如何保留一个数据库的全量备份？</a></li><li><a href="#%E5%A6%82%E4%BD%95%E8%BF%98%E5%8E%9F%E4%B8%80%E4%B8%AA%E5%85%A8%E9%87%8F%E5%A4%87%E4%BB%BD">如何还原一个全量备份？</a></li><li><a href="#%E5%A6%82%E4%BD%95%E7%94%A8binlog%E8%BF%98%E5%8E%9F%E5%A2%9E%E9%87%8F%E5%A4%87%E4%BB%BD">如何用binlog还原增量备份？</a></li><li><a href="#%E5%A6%82%E4%BD%95%E5%9C%A8%E6%B2%A1%E6%9C%89%E5%85%A8%E9%87%8F%E5%A4%87%E4%BB%BD%E7%9A%84%E6%83%85%E5%86%B5%E4%B8%8B%E5%B0%86%E6%95%B0%E6%8D%AE%E5%BA%93%E9%80%80%E5%9B%9E%E5%88%B0%E6%8C%87%E5%AE%9A%E6%97%B6%E9%97%B4%E7%82%B9">如何在没有全量备份的情况下将数据库退回到指定时间点？</a></li></ul><!-- tocstop --><h2><span id="准备工作">准备工作</span></h2><h3><span id="创建binlog2sql账号">创建binlog2sql账号</span></h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">USER</span> binlog2sql@<span class="string">&#x27;%&#x27;</span> IDENTIFIED <span class="keyword">BY</span> <span class="string">&#x27;binlog2sql&#x27;</span>;</span><br></pre></td></tr></table></figure><h3><span id="授权">授权</span></h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GRANT</span> <span class="keyword">SELECT</span>, REPLICATION SLAVE, REPLICATION CLIENT <span class="keyword">ON</span> <span class="operator">*</span>.<span class="operator">*</span> <span class="keyword">TO</span> binlog2sql@<span class="string">&#x27;%&#x27;</span> identified <span class="keyword">by</span> <span class="string">&#x27;binlog2sql&#x27;</span>;</span><br><span class="line">FLUSH privileges;</span><br></pre></td></tr></table></figure><h3><span id="服务器配置">服务器配置</span></h3><p>默认配置文件路径</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/etc/mysql/mysql.conf.d/mysqld.cnf</span><br></pre></td></tr></table></figure><p>查找server-id，附近的选项按如下设置</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">server_id = 1</span><br><span class="line">log_bin = /var/log/mysql/mysql-bin.log # 开启binlog，设置路径</span><br><span class="line">max_binlog_size = 1G # 设置单个binlog大小上限</span><br><span class="line">binlog_format = row # 设置binlog模式，binlog2sql要求必须是row模式</span><br><span class="line">binlog_row_image = full # 默认的，可以不设</span><br></pre></td></tr></table></figure><p>重启mysql</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service mysql restart</span><br></pre></td></tr></table></figure><h3><span id="下载binlog2sql">下载binlog2sql</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/danfengcao/binlog2sql.git /opt/binlog2sql</span><br></pre></td></tr></table></figure><h3><span id="安装依赖">安装依赖</span></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install -r /opt/binlog2sql/requirements.txt</span><br></pre></td></tr></table></figure><h3><span id="创建binlog2sql别名">创建binlog2sql别名</span></h3><p>为了方便使用binlog2sql.py脚本，可以把别名设置写在~&#x2F;.bash_aliases文件中</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">alias binlog2sql=&#x27;python /opt/binlog2sql/binlog2sql/binlog2sql.py -h 127.0.0.1 -u binlog2sql -p binlog2sql&#x27;</span><br></pre></td></tr></table></figure><h2><span id="如何查看一个binlog文件记录的position的范围">如何查看一个binlog文件记录的position的范围？</span></h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqlbinlog -v mysql-bin.000010|tail -n 100|less</span><br></pre></td></tr></table></figure><p>输出</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">……</span><br><span class="line"># at 4356297</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356362 CRC32 0xeb816e97      Anonymous_GTID  last_committed=5723     sequence_number=5</span><br><span class="line">724    rbr_only=yes</span><br><span class="line">/*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;</span><br><span class="line">SET @@SESSION.GTID_NEXT= &#x27;ANONYMOUS&#x27;/*!*/;</span><br><span class="line"># at 4356362</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356439 CRC32 0x91cd3acc      Query   thread_id=45    exec_time=0     error_code=0</span><br><span class="line">SET TIMESTAMP=1648879939/*!*/;</span><br><span class="line">BEGIN</span><br><span class="line">/*!*/;</span><br><span class="line"># at 4356439</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356548 CRC32 0x6635890f      Table_map: `gogoal_v2`.`rpt_target_price_adjust` mapped t</span><br><span class="line">o number 226</span><br><span class="line"># at 4356548</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356766 CRC32 0xa3f8f451      Write_rows: table id 226 flags: STMT_END_F</span><br><span class="line"></span><br><span class="line">BINLOG &#x27;</span><br><span class="line">Q+lHYhMBAAAAbQAAAMR5QgAAAOIAAAAAAAEACWdvZ29hbF92MgAXcnB0X3RhcmdldF9wcmljZV9h</span><br><span class="line">ZGp1c3QAFAMDDw8PAwMPDwoKBQUFAxISCBISETwAlgDCAZYAWAIICAgAAAAA/v8PD4k1Zg==</span><br><span class="line">Q+lHYh4BAAAA2gAAAJ56QgAAAOIAAAAAAAEAAgAU////AAD8HekUABzdFQAGMDAwMDAyB+S4h+en</span><br><span class="line">kUE3AOS4h+enkUHvvJrliKnmtqbnjofljovlipvph4rmlL7vvIzmlrDkuJrliqHlhZHnjrDlop7p</span><br><span class="line">lb8WAAAAPQAAAAzlub/lj5Hor4HliLgXAOmDremVhyzkuZDliqDmoIss6YKi6I6YgcwPS8wPKVyP</span><br><span class="line">wvVoPEAzMzMzM3M5QGZmZmZmJjNAAgAAAJmshMqAmayEyoBC83pdAQAAAFH0+KM=</span><br><span class="line">&#x27;/*!*/;</span><br><span class="line">### INSERT INTO `gogoal_v2`.`rpt_target_price_adjust`</span><br><span class="line">### SET</span><br><span class="line">###   @1=1370397</span><br><span class="line">###   @2=1432860</span><br><span class="line">###   @3=&#x27;000002&#x27;</span><br><span class="line">###   @4=&#x27;万科A&#x27;</span><br><span class="line">###   @5=&#x27;万科A：利润率压力释放，新业务兑现增长&#x27;</span><br><span class="line">###   @6=22</span><br><span class="line">###   @7=61</span><br><span class="line">###   @8=&#x27;广发证券&#x27;</span><br><span class="line">###   @9=&#x27;郭镇,乐加栋,邢莘&#x27;</span><br><span class="line">###   @10=&#x27;2022:04:01&#x27;</span><br><span class="line">###   @11=&#x27;2022:02:11&#x27;</span><br><span class="line">###   @12=28.410000000000000142</span><br><span class="line">###   @13=25.449999999999999289</span><br><span class="line">###   @14=19.149999999999998579</span><br><span class="line">###   @15=2</span><br><span class="line">###   @16=&#x27;2022-04-02 12:42:00&#x27;</span><br><span class="line">###   @17=&#x27;2022-04-02 12:42:00&#x27;</span><br><span class="line">###   @18=5863306050</span><br><span class="line">###   @19=NULL</span><br><span class="line">###   @20=NULL</span><br><span class="line"># at 4356766</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356797 CRC32 0x5d69576f      Xid = 715129</span><br><span class="line">COMMIT/*!*/;</span><br><span class="line"># at 4356797</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356862 CRC32 0x941d7ebe      Anonymous_GTID  last_committed=5724     sequence_number=5725    rbr_only=yes</span><br><span class="line">/*!50718 SET TRANSACTION ISOLATION LEVEL READ COMMITTED*//*!*/;</span><br><span class="line">SET @@SESSION.GTID_NEXT= &#x27;ANONYMOUS&#x27;/*!*/;</span><br><span class="line"># at 4356862</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4356939 CRC32 0x25f3bc96      Query   thread_id=45    exec_time=0     error_code=0</span><br><span class="line">SET TIMESTAMP=1648879939/*!*/;</span><br><span class="line">BEGIN</span><br><span class="line">/*!*/;</span><br><span class="line"># at 4356939</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4357048 CRC32 0x94e54d42      Table_map: `gogoal_v2`.`rpt_target_price_adjust` mapped to number 226</span><br><span class="line"># at 4357048</span><br><span class="line">#220402 14:12:19 server id 1  end_log_pos 4357304 CRC32 0x6be0ae0b      Write_rows: table id 226 flags: STMT_END_F</span><br><span class="line">……</span><br></pre></td></tr></table></figure><p>其中的 #at 后面的数字就是position，文件首个和最后一个position就是这个binlog记录的position的范围。</p><p>另外，举例来说，如果我们要解析出的insert语句，需要从4356362解析到4356766，从BEGIN上面的position到COMMIT上面的position，至于update或delete应该是类似的。</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">binlog2sql -d gogoal_v2 --start-file=mysql-bin.000010 --start-position=4356362 --stop-position=4356766</span><br></pre></td></tr></table></figure><p>输出</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO `gogoal_v2`.`rpt_target_price_adjust`(`id`, `report_id`, `stock_code`, `stock_name`, `title`, `report_type`, `organ_id`, `organ_name`, `author`, `current_create_date`, `previous_create_date`, `current_target_price`, `previous_target_price`, `current_price`, `price_adjust_mark`, `entrytime`, `updatetime`, `tmstamp`, `UTSUPTIME`, `UTSFIRSTTIME`) VALUES (1370397, 1432860, &#x27;000002&#x27;, &#x27;万科A&#x27;, &#x27;万科A：利润率压力释放，新业务兑现增长&#x27;, 22, 61, &#x27;广发证券&#x27;, &#x27;郭镇,乐加栋,邢莘&#x27;, &#x27;2022-04-01&#x27;, &#x27;2022-02-11&#x27;, 28.41, 25.45, 19.15, 2, &#x27;2022-04-02 12:42:00&#x27;, &#x27;2022-04-02 12:42:00&#x27;, 5863306050, NULL, NULL); #start 4356439 end 4356766 time 2022-04-02 14:12:19</span><br></pre></td></tr></table></figure><h2><span id="如何保留一个数据库的全量备份">如何保留一个数据库的全量备份？</span></h2><p>有两种形式，一种是通过mysqldump把数据库导出成sql，正常应该通过这种形式</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqldump --master-data=2 gogoal_v2&gt; /data/dbbackup/20220406/gogoal_v2.sql</span><br></pre></td></tr></table></figure><p>这里的–master-data&#x3D;2选项会在生成的sql中生成被注释掉的 CHANGE MASTER 命令，里面有binlog文件编号和位置编号</p><p>另一种是直接备份数据库目录，我们的mysql中只有一个数据库gogoal_v2，所以备份目录是最方便的。<br>那么我们就要手动确定备份下来截止的binlog编号和位置编号，为了防止一边备份数据库一边在变，我们需要先停止数据库，而恰好我们操作的这个数据库又不是生产环境使用的，可以随时停止</p><p>首先停止数据库</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service mysql stop</span><br></pre></td></tr></table></figure><p>查看&#x2F;data&#x2F;mysql-binlog下最新的binlog文件和最新的position并记录下来，可以写在后面的备份目录下</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql-bin.000012 5055197</span><br></pre></td></tr></table></figure><p>备份&#x2F;var&#x2F;lib&#x2F;mysql下的全部文件</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cp -rp /var/lib/mysql /data/dbbackup/20220406/</span><br></pre></td></tr></table></figure><p>最后在恢复启动数据库</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service mysql start</span><br></pre></td></tr></table></figure><h2><span id="如何还原一个全量备份">如何还原一个全量备份？</span></h2><p>我们将备份还原到一个新的mysql容器中</p><p>首先创建一个mysql容器</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run --name mysql -Pdit daimingzhuang/mysql</span><br></pre></td></tr></table></figure><p>daimingzhuang&#x2F;mysql和官方mysql容器的区别是按原mysql的配置做了字符编码、大小写相关的设置，允许root远程访问，设置了默认密码</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">lower_case_table_names=1</span><br><span class="line">character_set_server=utf8mb4</span><br><span class="line">collation-server=utf8mb4_unicode_ci</span><br><span class="line">init_connect=&#x27;SET NAMES utf8mb4&#x27;</span><br><span class="line">skip-character-set-client-handshake=true</span><br></pre></td></tr></table></figure><p>实际使用的命令还包含了资源使用限制</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">docker run --name mysql -Pdit \</span><br><span class="line">--cpuset-cpus=&quot;1,3&quot; \</span><br><span class="line">--memory=4G \</span><br><span class="line">--device-read-bps /dev/sdd:80mb \</span><br><span class="line">--device-write-bps /dev/sdd:50mb \</span><br><span class="line">--device-read-bps /dev/sdb:80mb \</span><br><span class="line">--device-write-bps /dev/sdb:50mb \</span><br><span class="line">daimingzhuang/mysql</span><br></pre></td></tr></table></figure><p>然后连到容器停止mysql服务</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it mysql bash</span><br><span class="line">service mysql stop</span><br></pre></td></tr></table></figure><p>把备份文件复制到容器中</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker cp /data/dbbackup/20220406/mysql mysql:/var/lib/mysql</span><br></pre></td></tr></table></figure><p>还需要复制debian.cnf解决服务控制权限问题（里面有debian-sys-maint用户的密码）</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker cp /etc/mysql/debian.cnf 容器名:/etc/mysql/debian.cnf</span><br></pre></td></tr></table></figure><p>再到容器中修改目录权限并启动mysql</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chown -R mysql:mysql /var/lib/mysql</span><br><span class="line">service mysql start </span><br></pre></td></tr></table></figure><h2><span id="如何用binlog还原增量备份">如何用binlog还原增量备份？</span></h2><p>下面将在前面已经还原了全量备份的基础上，继续利用binlog还原到指定时间点<br>我们先看一下当前binlog文件</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ll /var/log/mysql</span><br></pre></td></tr></table></figure><p>输出</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">total 1221304</span><br><span class="line">drwx------ 2 mysql mysql      1024 Apr  7 06:25 ./</span><br><span class="line">drwxr-xr-x 8 root  root       1024 Apr  6 20:14 ../</span><br><span class="line">-rw-r----- 1 mysql mysql 164683302 Mar 26 06:25 mysql-bin.000001</span><br><span class="line">-rw-r----- 1 mysql mysql   1146243 Mar 27 06:25 mysql-bin.000002</span><br><span class="line">-rw-r----- 1 mysql mysql   5487816 Mar 28 06:25 mysql-bin.000003</span><br><span class="line">-rw-r----- 1 mysql mysql 176003823 Mar 29 06:25 mysql-bin.000004</span><br><span class="line">-rw-r----- 1 mysql mysql 180791383 Mar 30 06:25 mysql-bin.000005</span><br><span class="line">-rw-r----- 1 mysql mysql 189424937 Mar 31 06:25 mysql-bin.000006</span><br><span class="line">-rw-r----- 1 mysql mysql 177521662 Apr  1 06:25 mysql-bin.000007</span><br><span class="line">-rw-r----- 1 mysql mysql   1704056 Apr  1 10:43 mysql-bin.000008</span><br><span class="line">-rw-r----- 1 mysql mysql 172659973 Apr  2 06:25 mysql-bin.000009</span><br><span class="line">-rw-r----- 1 mysql mysql   4357335 Apr  2 18:28 mysql-bin.000010</span><br><span class="line">-rw-r----- 1 mysql mysql   1212646 Apr  2 22:33 mysql-bin.000011</span><br><span class="line">-rw-r----- 1 mysql mysql   5055220 Apr  6 17:01 mysql-bin.000012</span><br><span class="line">-rw-r----- 1 mysql mysql 166213563 Apr  7 06:25 mysql-bin.000013</span><br><span class="line">-rw-r----- 1 mysql mysql   4326594 Apr  7 14:12 mysql-bin.000014</span><br><span class="line">-rw-r----- 1 mysql mysql       504 Apr  7 06:25 mysql-bin.index</span><br></pre></td></tr></table></figure><p>我们可以估计需要还原到的数据点在哪个binlog文件中，比如我想还原到20220407 0点，那就应该在这里 Apr 7 06:25 mysql-bin.000013 ，事实上我们把000014或更多的binlog包含进来不要紧，只是浪费了执行命令的过滤时间</p><p>在原mysql上从binlog解析出全量备份后的增量sql</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">binlog2sql -d gogoal_v2 --start-file=mysql-bin.000013 --stop-file=mysql-bin.000014 --stop-datetime=&#x27;2022-04-07 00:00:00&#x27; &gt; inc_20220407000000.sql</span><br></pre></td></tr></table></figure><p>–start-file和–start-position根据全量备份时记录的位置设置，我们全量备份时候记录的是mysql-bin.000012 5055197 ，而事实上因为我们在做全量备份的时候停止了mysql服务，重启后会写入新的binlog，所以我们可以从mysql-bin.000013开始还原，–stop-datetime 指定了还原到的时间点</p><p>把增量sql复制到容器内</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker cp ./inc_20220407000000.sql mysql:/root/</span><br></pre></td></tr></table></figure><p>在容器内执行还原</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it mysql bash</span><br><span class="line">mysql gogoal_v2 &lt; /root/inc_20220407000000.sql </span><br></pre></td></tr></table></figure><h2><span id="如何在没有全量备份的情况下将数据库退回到指定时间点">如何在没有全量备份的情况下将数据库退回到指定时间点？</span></h2><p>当前时间 2022-04-12 13:38:00</p><p>假设我们想退回到 2022-04-11 15:00:00</p><p>在有全量备份的情况下我们可以通过上面的方法先还原全量备份再叠加通过binlog导出的增量sql来还原，但在没有全量备份或者全量备份比较久远的情况下，我们也可以通过binlog2sql导出基于当前数据的回退sql来还原。</p><p>首先停止数据库</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service mysql stop</span><br></pre></td></tr></table></figure><p>还是先看一下当前binlog文件</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ll /var/log/mysql</span><br></pre></td></tr></table></figure><p>输出</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">total 1732017</span><br><span class="line">drwx------ 2 mysql mysql      1024 Apr 12 13:39 ./</span><br><span class="line">drwxr-xr-x 8 root  root       1024 Apr  6 20:14 ../</span><br><span class="line">-rw-r----- 1 mysql mysql 164683302 Mar 26 06:25 mysql-bin.000001</span><br><span class="line">-rw-r----- 1 mysql mysql   1146243 Mar 27 06:25 mysql-bin.000002</span><br><span class="line">-rw-r----- 1 mysql mysql   5487816 Mar 28 06:25 mysql-bin.000003</span><br><span class="line">-rw-r----- 1 mysql mysql 176003823 Mar 29 06:25 mysql-bin.000004</span><br><span class="line">-rw-r----- 1 mysql mysql 180791383 Mar 30 06:25 mysql-bin.000005</span><br><span class="line">-rw-r----- 1 mysql mysql 189424937 Mar 31 06:25 mysql-bin.000006</span><br><span class="line">-rw-r----- 1 mysql mysql 177521662 Apr  1 06:25 mysql-bin.000007</span><br><span class="line">-rw-r----- 1 mysql mysql   1704056 Apr  1 10:43 mysql-bin.000008</span><br><span class="line">-rw-r----- 1 mysql mysql 172659973 Apr  2 06:25 mysql-bin.000009</span><br><span class="line">-rw-r----- 1 mysql mysql   4357335 Apr  2 18:28 mysql-bin.000010</span><br><span class="line">-rw-r----- 1 mysql mysql   1212646 Apr  2 22:33 mysql-bin.000011</span><br><span class="line">-rw-r----- 1 mysql mysql   5055220 Apr  6 17:01 mysql-bin.000012</span><br><span class="line">-rw-r----- 1 mysql mysql 166213563 Apr  7 06:25 mysql-bin.000013</span><br><span class="line">-rw-r----- 1 mysql mysql 173374732 Apr  8 06:25 mysql-bin.000014</span><br><span class="line">-rw-r----- 1 mysql mysql 171723561 Apr  9 06:25 mysql-bin.000015</span><br><span class="line">-rw-r----- 1 mysql mysql    471311 Apr 10 06:25 mysql-bin.000016</span><br><span class="line">-rw-r----- 1 mysql mysql   3800429 Apr 11 06:25 mysql-bin.000017</span><br><span class="line">-rw-r----- 1 mysql mysql 176073129 Apr 12 06:25 mysql-bin.000018</span><br><span class="line">-rw-r----- 1 mysql mysql   1845781 Apr 12 12:41 mysql-bin.000019</span><br><span class="line">-rw-r----- 1 mysql mysql       684 Apr 12 06:25 mysql-bin.index</span><br></pre></td></tr></table></figure><p>我们可以估计需要还原到的时间点 2022-04-11 15:00:00 应该在 mysql-bin.000018 中，那么回退需要用到的binlog就是从000018到000019，导出回退sql的命令如下</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">binlog2sql --flashback -d gogoal_v2 --start-file=mysql-bin.000018 --stop-file=mysql-bin.000019 --start-date=&quot;2022-04-11 15:00:00&quot; &gt; flashback.sql</span><br></pre></td></tr></table></figure><p>和之前命令的区别就是–flashback选项，表示导出符合指定条件内的回退sql语句。</p><p>之后创建一个新的mysql容器，把当前数据的&#x2F;var&#x2F;lib&#x2F;mysql复制到容器中，修正权限。不要忘了重新启动前面停止的mysql服务。再把flashback.sql导入到容器数据库中即可实现回退。具体语句参照前面已经讲过的内容。</p>]]></content>
     
@@ -158,14 +187,14 @@
     
     
     
-    <category term="mysql" scheme="https://www.kyo86.com/tags/mysql/"/>
+    <category term="mysql" scheme="https://kyo86.com/tags/mysql/"/>
     
   </entry>
   
   <entry>
     <title>docker常用命令</title>
-    <link href="https://www.kyo86.com/2022/03/28/docker/"/>
-    <id>https://www.kyo86.com/2022/03/28/docker/</id>
+    <link href="https://kyo86.com/2022/03/28/docker/"/>
+    <id>https://kyo86.com/2022/03/28/docker/</id>
     <published>2022-03-27T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -180,14 +209,14 @@
     
     
     
-    <category term="docker" scheme="https://www.kyo86.com/tags/docker/"/>
+    <category term="docker" scheme="https://kyo86.com/tags/docker/"/>
     
   </entry>
   
   <entry>
     <title>在Shell脚本中输入密码</title>
-    <link href="https://www.kyo86.com/2022/02/21/password-in-sh/"/>
-    <id>https://www.kyo86.com/2022/02/21/password-in-sh/</id>
+    <link href="https://kyo86.com/2022/02/21/password-in-sh/"/>
+    <id>https://kyo86.com/2022/02/21/password-in-sh/</id>
     <published>2022-02-20T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.914Z</updated>
     
@@ -206,16 +235,16 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
-    <category term="ssh-tunnel" scheme="https://www.kyo86.com/tags/ssh-tunnel/"/>
+    <category term="ssh-tunnel" scheme="https://kyo86.com/tags/ssh-tunnel/"/>
     
   </entry>
   
   <entry>
     <title>迁移git项目</title>
-    <link href="https://www.kyo86.com/2022/02/08/migra-git-repository/"/>
-    <id>https://www.kyo86.com/2022/02/08/migra-git-repository/</id>
+    <link href="https://kyo86.com/2022/02/08/migra-git-repository/"/>
+    <id>https://kyo86.com/2022/02/08/migra-git-repository/</id>
     <published>2022-02-07T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -230,14 +259,14 @@
     
     
     
-    <category term="git" scheme="https://www.kyo86.com/tags/git/"/>
+    <category term="git" scheme="https://kyo86.com/tags/git/"/>
     
   </entry>
   
   <entry>
     <title>pandas df.to_excel 设置列宽遇到 AttributeError: &#39;Worksheet&#39; object has no attribute &#39;column_dimensions&#39;</title>
-    <link href="https://www.kyo86.com/2021/12/23/df-to-excel-set-width/"/>
-    <id>https://www.kyo86.com/2021/12/23/df-to-excel-set-width/</id>
+    <link href="https://kyo86.com/2021/12/23/df-to-excel-set-width/"/>
+    <id>https://kyo86.com/2021/12/23/df-to-excel-set-width/</id>
     <published>2021-12-22T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -252,16 +281,16 @@
     
     
     
-    <category term="python" scheme="https://www.kyo86.com/tags/python/"/>
+    <category term="python" scheme="https://kyo86.com/tags/python/"/>
     
-    <category term="pandas" scheme="https://www.kyo86.com/tags/pandas/"/>
+    <category term="pandas" scheme="https://kyo86.com/tags/pandas/"/>
     
   </entry>
   
   <entry>
     <title>记一次Linux因硬盘设备编号错位挂载失败引起启动失败的解决过程</title>
-    <link href="https://www.kyo86.com/2021/10/25/linux-mount-error-on-boot/"/>
-    <id>https://www.kyo86.com/2021/10/25/linux-mount-error-on-boot/</id>
+    <link href="https://kyo86.com/2021/10/25/linux-mount-error-on-boot/"/>
+    <id>https://kyo86.com/2021/10/25/linux-mount-error-on-boot/</id>
     <published>2021-10-24T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -276,16 +305,16 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
-    <category term="trouble-shooting" scheme="https://www.kyo86.com/tags/trouble-shooting/"/>
+    <category term="trouble-shooting" scheme="https://kyo86.com/tags/trouble-shooting/"/>
     
   </entry>
   
   <entry>
     <title>SSH Tunnel</title>
-    <link href="https://www.kyo86.com/2021/02/18/ssh-tunnel/"/>
-    <id>https://www.kyo86.com/2021/02/18/ssh-tunnel/</id>
+    <link href="https://kyo86.com/2021/02/18/ssh-tunnel/"/>
+    <id>https://kyo86.com/2021/02/18/ssh-tunnel/</id>
     <published>2021-02-17T16:00:00.000Z</published>
     <updated>2022-04-24T08:58:05.286Z</updated>
     
@@ -302,16 +331,16 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
-    <category term="ssh-tunnel" scheme="https://www.kyo86.com/tags/ssh-tunnel/"/>
+    <category term="ssh-tunnel" scheme="https://kyo86.com/tags/ssh-tunnel/"/>
     
   </entry>
   
   <entry>
     <title>Vue.js前端跨域请求代理设置方法</title>
-    <link href="https://www.kyo86.com/2021/02/02/vue-cross-domain/"/>
-    <id>https://www.kyo86.com/2021/02/02/vue-cross-domain/</id>
+    <link href="https://kyo86.com/2021/02/02/vue-cross-domain/"/>
+    <id>https://kyo86.com/2021/02/02/vue-cross-domain/</id>
     <published>2021-02-02T06:59:44.000Z</published>
     <updated>2022-04-19T11:39:25.914Z</updated>
     
@@ -328,14 +357,14 @@
     
     
     
-    <category term="vue.js" scheme="https://www.kyo86.com/tags/vue-js/"/>
+    <category term="vue.js" scheme="https://kyo86.com/tags/vue-js/"/>
     
   </entry>
   
   <entry>
     <title>Linux限制目录大小</title>
-    <link href="https://www.kyo86.com/2021/02/02/linux-limit-directory-size/"/>
-    <id>https://www.kyo86.com/2021/02/02/linux-limit-directory-size/</id>
+    <link href="https://kyo86.com/2021/02/02/linux-limit-directory-size/"/>
+    <id>https://kyo86.com/2021/02/02/linux-limit-directory-size/</id>
     <published>2021-02-01T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -353,14 +382,14 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
   </entry>
   
   <entry>
     <title>Ubuntu下使用PPTPD搭建VPN</title>
-    <link href="https://www.kyo86.com/2021/02/01/ubuntu-pptpd/"/>
-    <id>https://www.kyo86.com/2021/02/01/ubuntu-pptpd/</id>
+    <link href="https://kyo86.com/2021/02/01/ubuntu-pptpd/"/>
+    <id>https://kyo86.com/2021/02/01/ubuntu-pptpd/</id>
     <published>2021-01-31T16:00:00.000Z</published>
     <updated>2022-04-19T11:39:25.914Z</updated>
     
@@ -375,16 +404,16 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
-    <category term="vpn" scheme="https://www.kyo86.com/tags/vpn/"/>
+    <category term="vpn" scheme="https://kyo86.com/tags/vpn/"/>
     
   </entry>
   
   <entry>
     <title>Linux配置共享目录</title>
-    <link href="https://www.kyo86.com/2020/08/27/linux-share/"/>
-    <id>https://www.kyo86.com/2020/08/27/linux-share/</id>
+    <link href="https://kyo86.com/2020/08/27/linux-share/"/>
+    <id>https://kyo86.com/2020/08/27/linux-share/</id>
     <published>2020-08-27T09:20:08.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -400,16 +429,16 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
-    <category term="nfs" scheme="https://www.kyo86.com/tags/nfs/"/>
+    <category term="nfs" scheme="https://kyo86.com/tags/nfs/"/>
     
   </entry>
   
   <entry>
     <title>PostgreSQL 10 主从同步配置</title>
-    <link href="https://www.kyo86.com/2020/08/27/psql-master-slave-sync/"/>
-    <id>https://www.kyo86.com/2020/08/27/psql-master-slave-sync/</id>
+    <link href="https://kyo86.com/2020/08/27/psql-master-slave-sync/"/>
+    <id>https://kyo86.com/2020/08/27/psql-master-slave-sync/</id>
     <published>2020-08-27T09:06:43.000Z</published>
     <updated>2022-04-19T11:39:25.914Z</updated>
     
@@ -427,14 +456,14 @@
     
     
     
-    <category term="PostgreSQL" scheme="https://www.kyo86.com/tags/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="https://kyo86.com/tags/PostgreSQL/"/>
     
   </entry>
   
   <entry>
     <title>Linux .service文件 创建服务、配置服务自启动</title>
-    <link href="https://www.kyo86.com/2020/06/28/linux-service/"/>
-    <id>https://www.kyo86.com/2020/06/28/linux-service/</id>
+    <link href="https://kyo86.com/2020/06/28/linux-service/"/>
+    <id>https://kyo86.com/2020/06/28/linux-service/</id>
     <published>2020-06-28T01:53:54.000Z</published>
     <updated>2022-04-19T11:39:25.901Z</updated>
     
@@ -450,7 +479,7 @@
     
     
     
-    <category term="linux" scheme="https://www.kyo86.com/tags/linux/"/>
+    <category term="linux" scheme="https://kyo86.com/tags/linux/"/>
     
   </entry>
   
